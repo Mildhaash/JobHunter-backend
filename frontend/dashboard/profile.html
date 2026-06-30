@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Profile — Application Tracker</title>
+  <link rel="stylesheet" href="dashboard.css" />
+  <script>
+    (function() {
+      var t = localStorage.getItem("jobtracker-theme");
+      if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    })();
+  </script>
+</head>
+<body>
+
+  <header class="site-header" id="siteHeader"></header>
+
+  <main>
+    <section class="profile-section">
+      <div class="profile-card">
+        <div class="profile-avatar-big" id="profileAvatarBig">U</div>
+        <h1>My Profile</h1>
+        <p class="profile-subtitle">Update your name and email. Changes are saved on this device.</p>
+
+        <form id="profileForm" novalidate>
+          <div class="field">
+            <label for="nameInput">Full name</label>
+            <input type="text" id="nameInput" name="name" required />
+            <span class="error-text" id="nameError" aria-live="polite"></span>
+          </div>
+
+          <div class="field">
+            <label for="emailInput">Email</label>
+            <input type="email" id="emailInput" name="email" required />
+            <span class="error-text" id="emailError" aria-live="polite"></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Save changes</button>
+          <p class="save-confirm" id="saveConfirm" hidden>Profile updated.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Built with HTML, CSS &amp; JavaScript — no frameworks.</p>
+  </footer>
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script src="profile.js"></script>
+</body>
+</html>

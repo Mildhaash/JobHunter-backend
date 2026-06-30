@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobTrackerPro — Stop manually tracking jobs</title>
+  <link rel="stylesheet" href="homepage.css" />
+  <!-- <script src="/theme.js"></script> -->
+</head>
+<body>
+  <script src="theme.js"></script>
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="home.html" class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Job<span>Hunter</span></span>
+      </a>
+      <!-- <nav class="main-nav">
+        <a href="#tech-stack">Tech Stack</a>
+        <a href="#explore">Explore</a>
+      </nav> -->
+      <div class="header-actions">
+        <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 119.5 4a7 7 0 0010.5 10.5z"/></svg>
+        </button>
+        <a href="login.html" class="link-login">Log in</a>
+        <a href="signup.html" class="btn btn-primary">Sign up</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="hero">
+      <h1>Stop manually tracking jobs.</h1>
+      <p>
+        Forward your application emails, and the <strong>AI agent</strong> will populate your
+        dashboard automatically — no spreadsheets, no copy-pasting.
+      </p>
+      <div class="hero-actions">
+        <a href="signup.html" class="btn btn-primary">Automate my job hunt &rarr;</a>
+      </div>
+    </section>
+
+    <section id="tech-stack" class="section">
+      <div class="section-head">
+        <h2>From inbox to dashboard in seconds</h2>
+        <p>The automated pipeline designed for efficiency.</p>
+      </div>
+      <div class="step-grid">
+        <div class="step-card">
+          <span class="step-eyebrow">Step 01</span>
+          <div class="step-icon c-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          </div>
+          <h3>Forward email</h3>
+          <p>Set up auto-forwarding for your "Application received" emails to your unique JobTrackerPro address.</p>
+        </div>
+        <div class="step-card is-highlighted">
+          <span class="step-eyebrow">Step 02</span>
+          <div class="step-icon c-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>
+          </div>
+          <h3>AI parsing</h3>
+          <p>An AI engine reads the email, extracts the company, role, and status, and ignores the clutter.</p>
+        </div>
+        <div class="step-card">
+          <span class="step-eyebrow">Step 03</span>
+          <div class="step-icon c-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+          </div>
+          <h3>Auto-added</h3>
+          <p>The job appears on your dashboard instantly — it even handles status updates like "interview invite" automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="explore" class="section">
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon c-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
+          </div>
+          <h3>Visual analytics</h3>
+          <p>Don't just list jobs — see your interview conversion rate and pipeline health with real-time charts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon c-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </div>
+          <h3>Hybrid security</h3>
+          <p>Link your Google or GitHub account, or stick to a private email/password. Your data, your choice.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon c-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+          </div>
+          <h3>Zero latency</h3>
+          <p>Built with optimistic UI updates — interactions feel instant, even on slow connections.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <!-- <div class="footer-brand">
+      <span class="brand-mark"></span>
+      <span class="brand-name">Job<span>Hunter</span></span>
+    </div>
+    <p class="footer-tagline">
+      The enterprise-grade job tracker built to automate your career journey using generative AI.
+    </p>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <h4>PLATFORM</h4>
+        <a href="#tech-stack">Tech Stack</a>
+        <a href="#explore">Career Vault</a>
+        <a href="#">GitHub &#8599;</a>
+      </div>
+      <div class="footer-col">
+        <h4>LEGAL</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+    <hr class="footer-rule" /> -->
+    <p>Built with HTML, CSS &amp; JavaScript — no frameworks.</p>
+  </footer>
+</body>
+</html>

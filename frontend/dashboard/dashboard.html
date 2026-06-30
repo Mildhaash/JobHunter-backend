@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — JobHunter</title>
+  <link rel="stylesheet" href="dashboard.css" />
+  <script>
+    (function() {
+      var t = localStorage.getItem("jobtracker-theme");
+      if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    })();
+  </script>
+</head>
+<body>
+
+  <header class="site-header" id="siteHeader"></header>
+
+  <main>
+    <section class="page-head">
+      <h1>All Applications</h1>
+      <p>Tracking <strong id="headCount">0</strong> active entries</p>
+    </section>
+
+    <section class="stats-section" aria-label="Application summary">
+      <div class="stat-card">
+        <div class="stat-card-top">
+          <p class="stat-label">Total Applications</p>
+          <span class="stat-icon c-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </span>
+        </div>
+        <p class="stat-value" id="statTotal">0</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-top">
+          <p class="stat-label">Interviews</p>
+          <span class="stat-icon c-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <p class="stat-value"><span id="statInterview">0</span> <span class="stat-sub" id="statInterviewActive">(0 active)</span></p>
+        <p class="stat-trend" id="statInterviewRate">0% interview rate</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-top">
+          <p class="stat-label">Offers Received</p>
+          <span class="stat-icon c-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="5"/><path d="M9 12.5L7 21l5-3 5 3-2-8.5"/></svg>
+          </span>
+        </div>
+        <p class="stat-value" id="statOffer">0</p>
+        <p class="stat-trend stat-trend-positive" id="statConversion">0% conversion</p>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card-top">
+          <p class="stat-label">Active Pipeline</p>
+          <span class="stat-icon c-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/></svg>
+          </span>
+        </div>
+        <p class="stat-value" id="statActive">0</p>
+      </div>
+    </section>
+
+    <section class="charts-grid" aria-label="Visual analytics">
+      <div class="chart-card">
+        <h3>Applications by Status</h3>
+        <div class="chart-canvas-wrap chart-canvas-donut">
+          <canvas id="statusChart"></canvas>
+        </div>
+        <ul class="chart-legend" id="statusLegend"></ul>
+      </div>
+
+      <div class="chart-card">
+        <h3>Monthly Applications</h3>
+        <div class="chart-canvas-wrap chart-canvas-bar">
+          <canvas id="monthlyChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Interview Progress</h3>
+        <div class="chart-canvas-wrap chart-canvas-donut">
+          <canvas id="interviewChart"></canvas>
+        </div>
+        <ul class="chart-legend" id="interviewLegend"></ul>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Built with HTML, CSS &amp; JavaScript — no frameworks.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="data.js"></script>
+  <script src="nav.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>
