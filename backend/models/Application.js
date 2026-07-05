@@ -18,6 +18,10 @@ const applicationSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    source: { type: String, enum: ["manual", "email"], default: "manual" },
+    emailSubject: { type: String, default: "" },
+    emailFrom: { type: String, default: "" },
+    jobUrl: { type: String, default: "" },
   },
   { timestamps: true }
 );

@@ -1,6 +1,6 @@
 (function () {
   const SESSION_KEY = "jobtracker-session";
-  const API_BASE = window.location.origin;
+  const API_BASE = "https://job-hunter-backend-five.vercel.app";
 
   function showMessage(message) {
     window.alert(message);

@@ -17,6 +17,14 @@ const userSchema = new mongoose.Schema(
       enum: ["local", "google", "github"],
       default: "local",
     },
+    forwardingAddress: { type: String, default: "" },
+    gmail: {
+      accessToken: { type: String, default: "" },
+      refreshToken: { type: String, default: "" },
+      email: { type: String, default: "" },
+      historyId: { type: String, default: "" },
+      lastSyncAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

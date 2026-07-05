@@ -3,7 +3,7 @@
 
 const DataStore = (() => {
   const SESSION_KEY = "jobtracker-session";
-  const API_BASE = window.location.origin;
+  const API_BASE = "https://job-hunter-backend-five.vercel.app";
 
   function getSessionId() {
     return localStorage.getItem(SESSION_KEY);
@@ -134,6 +134,23 @@ const DataStore = (() => {
     URL.revokeObjectURL(url);
   }
 
+  // ── Gmail ──────────────────────────────────────────────────────────────
+  async function getGmailStatus() {
+    return await api("/gmail/status");
+  }
+
+  async function connectGmail() {
+    return await api("/gmail/connect");
+  }
+
+  async function syncGmail() {
+    return await api("/gmail/sync", { method: "POST" });
+  }
+
+  async function disconnectGmail() {
+    return await api("/gmail/disconnect", { method: "POST" });
+  }
+
   captureOAuthSession();
 
   return {
@@ -150,5 +167,9 @@ const DataStore = (() => {
     getProfile,
     saveProfile,
     exportApplicationsAsJson,
+    getGmailStatus,
+    connectGmail,
+    syncGmail,
+    disconnectGmail,
   };
 })();

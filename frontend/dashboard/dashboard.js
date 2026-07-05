@@ -150,6 +150,88 @@ async function renderDashboard() {
   renderInterviewChart(apps);
 }
 
+async function renderGmailStatus() {
+  try {
+    const status = await DataStore.getGmailStatus();
+    const disconnected = document.getElementById("gmailDisconnected");
+    const connected = document.getElementById("gmailConnected");
+
+    if (status.connected) {
+      if (disconnected) disconnected.style.display = "none";
+      if (connected) connected.style.display = "block";
+      const emailEl = document.getElementById("gmailEmail");
+      if (emailEl) emailEl.textContent = status.email;
+      const lastSync = document.getElementById("gmailLastSync");
+      if (lastSync) {
+        lastSync.textContent = status.lastSyncAt
+          ? `Last sync: ${new Date(status.lastSyncAt).toLocaleString()}`
+          : "Last sync: Never";
+      }
+    } else {
+      if (disconnected) disconnected.style.display = "block";
+      if (connected) connected.style.display = "none";
+    }
+  } catch {
+    // silent
+  }
+}
+
+function initGmailButtons() {
+  const connectBtn = document.getElementById("gmailConnectBtn");
+  if (connectBtn) {
+    connectBtn.addEventListener("click", async () => {
+      connectBtn.disabled = true;
+      connectBtn.textContent = "Connecting...";
+      try {
+        const data = await DataStore.connectGmail();
+        if (data.url) {
+          window.location.href = data.url;
+        }
+      } catch {
+        connectBtn.disabled = false;
+        connectBtn.textContent = "Connect Gmail";
+        alert("Failed to start Gmail connection");
+      }
+    });
+  }
+
+  const syncBtn = document.getElementById("gmailSyncBtn");
+  if (syncBtn) {
+    syncBtn.addEventListener("click", async () => {
+      syncBtn.disabled = true;
+      syncBtn.textContent = "Syncing...";
+      const resultEl = document.getElementById("gmailSyncResult");
+      try {
+        const result = await DataStore.syncGmail();
+        if (resultEl) {
+          resultEl.textContent = result.synced > 0
+            ? `Synced ${result.synced} new application(s)!`
+            : result.message || "No new job emails found";
+        }
+        await renderGmailStatus();
+        await renderDashboard();
+      } catch (err) {
+        if (resultEl) resultEl.textContent = "Sync failed: " + (err.message || "Unknown error");
+      }
+      syncBtn.disabled = false;
+      syncBtn.textContent = "Sync Now";
+    });
+  }
+
+  const disconnectBtn = document.getElementById("gmailDisconnectBtn");
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener("click", async () => {
+      if (!confirm("Disconnect Gmail?")) return;
+      try {
+        await DataStore.disconnectGmail();
+        await renderGmailStatus();
+      } catch {
+        alert("Failed to disconnect");
+      }
+    });
+  }
+}
+
 async function initDashboard() {
   const user = await DataStore.checkSession();
   if (!user) {
@@ -158,6 +240,17 @@ async function initDashboard() {
   }
   await renderNav("dashboard");
   await renderDashboard();
+  await renderGmailStatus();
+  initGmailButtons();
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("gmail") === "connected") {
+    alert("Gmail connected successfully! Click 'Sync Now' to scan your emails.");
+    window.history.replaceState({}, "", window.location.pathname);
+  } else if (params.get("gmail") === "error") {
+    alert("Gmail connection failed. Please try again.");
+    window.history.replaceState({}, "", window.location.pathname);
+  }
 }
 
 document.addEventListener("DOMContentLoaded", initDashboard);
