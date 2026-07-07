@@ -24,6 +24,8 @@ const userSchema = new mongoose.Schema(
       email: { type: String, default: "" },
       historyId: { type: String, default: "" },
       lastSyncAt: { type: Date },
+      verificationUrl: { type: String, default: "" },
+      status: { type: String, default: "" },
     },
   },
   { timestamps: true }
