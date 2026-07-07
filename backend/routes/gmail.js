@@ -12,11 +12,14 @@ const AI_PARSER_API_KEY = process.env.AI_PARSER_API_KEY;
 router.get("/status", authenticate, (req, res) => {
   const user = req.user;
   const hasForwarding = !!(user.forwardingAddress);
+  const gmail = user.gmail || {};
   res.json({
     connected: hasForwarding,
     mode: hasForwarding ? "forwarding" : "none",
     forwardingAddress: user.forwardingAddress || "",
-    lastSyncAt: user.gmail?.lastSyncAt || null,
+    lastSyncAt: gmail.lastSyncAt || null,
+    verificationUrl: gmail.verificationUrl || "",
+    gmailStatus: gmail.status || "none",
   });
 });
 
@@ -43,12 +46,27 @@ router.post("/disconnect", authenticate, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     user.forwardingAddress = "";
-    user.gmail = { accessToken: "", refreshToken: "", email: "", historyId: "", lastSyncAt: null };
+    user.gmail = { accessToken: "", refreshToken: "", email: "", historyId: "", lastSyncAt: null, verificationUrl: "", status: "" };
     await user.save();
     res.json({ success: true });
   } catch (err) {
     console.error("Gmail disconnect error:", err);
     res.status(500).json({ error: "Failed to disconnect" });
+  }
+});
+
+// POST /api/gmail/verify — user clicked the verification link
+router.post("/verify", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    user.gmail = user.gmail || {};
+    user.gmail.status = "verified";
+    user.gmail.verificationUrl = "";
+    await user.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Gmail verify error:", err);
+    res.status(500).json({ error: "Failed to verify" });
   }
 });
 
@@ -71,6 +89,26 @@ router.post("/webhook", express.urlencoded({ extended: false }), async (req, res
     }
 
     const body = bodyPlain || bodyHtml || "";
+
+    const isGmailVerification =
+      sender === "forwarding-noreply@google.com" ||
+      (subject && subject.toLowerCase().includes("forwarding confirmation")) ||
+      (subject && subject.toLowerCase().includes("gmail forwarding"));
+
+    if (isGmailVerification) {
+      const linkMatch = body.match(/https:\/\/mail\.google\.com\/mail\/[^\s"<>]+/);
+      const htmlLinkMatch = (bodyHtml || "").match(/https:\/\/mail\.google\.com\/mail\/[^\s"<>]+/);
+      const verifyUrl = linkMatch?.[0] || htmlLinkMatch?.[0] || "";
+
+      user.gmail = user.gmail || {};
+      user.gmail.verificationUrl = verifyUrl;
+      user.gmail.status = "pending_verification";
+      await user.save();
+
+      console.log(`Gmail verification email received for user ${user._id}, link stored`);
+      return res.status(200).json({ success: true, type: "verification", stored: true });
+    }
+
     if (!body && !subject) {
       return res.status(200).json({ skipped: true, reason: "Empty email" });
     }
@@ -123,6 +161,7 @@ router.post("/webhook", express.urlencoded({ extended: false }), async (req, res
 
     user.gmail = user.gmail || {};
     user.gmail.lastSyncAt = new Date();
+    user.gmail.status = "verified";
     await user.save();
 
     res.json({ success: true, application });
