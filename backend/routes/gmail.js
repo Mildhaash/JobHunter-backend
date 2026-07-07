@@ -2,65 +2,49 @@ const express = require("express");
 const authenticate = require("../middleware/auth");
 const User = require("../models/User");
 const Application = require("../models/Application");
-const { getAuthUrl, handleCallback, fetchRecentEmails } = require("../services/gmailService");
 
 const router = express.Router();
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
+const AI_PARSER_URL = process.env.AI_PARSER_URL;
+const AI_PARSER_API_KEY = process.env.AI_PARSER_API_KEY;
 
-// GET /api/gmail/connect — returns Google OAuth URL
-router.get("/connect", authenticate, (req, res) => {
-  try {
-    const url = getAuthUrl(req.user._id.toString());
-    res.json({ url });
-  } catch (err) {
-    console.error("Gmail connect error:", err);
-    res.status(500).json({ error: "Failed to generate auth URL" });
-  }
-});
-
-// GET /api/gmail/callback — handles Google OAuth callback
-router.get("/callback", async (req, res) => {
-  try {
-    const { code, state } = req.query;
-    if (!code || !state) {
-      return res.redirect(`${CLIENT_URL}/dashboard/dashboard.html?gmail=error`);
-    }
-
-    const tokens = await handleCallback(code);
-
-    const user = await User.findById(state);
-    if (!user) {
-      return res.redirect(`${CLIENT_URL}/dashboard/dashboard.html?gmail=error`);
-    }
-
-    user.gmail.accessToken = tokens.accessToken;
-    user.gmail.refreshToken = tokens.refreshToken;
-    user.gmail.email = tokens.email;
-    user.gmail.lastSyncAt = new Date();
-    await user.save();
-
-    res.redirect(`${CLIENT_URL}/dashboard/dashboard.html?gmail=connected`);
-  } catch (err) {
-    console.error("Gmail callback error:", err);
-    res.redirect(`${CLIENT_URL}/dashboard/dashboard.html?gmail=error`);
-  }
-});
-
-// GET /api/gmail/status — check if Gmail is connected
+// GET /api/gmail/status — check Gmail sync status
 router.get("/status", authenticate, (req, res) => {
-  const gmail = req.user.gmail || {};
+  const user = req.user;
+  const hasForwarding = !!(user.forwardingAddress);
   res.json({
-    connected: !!(gmail.refreshToken),
-    email: gmail.email || "",
-    lastSyncAt: gmail.lastSyncAt || null,
+    connected: hasForwarding,
+    mode: hasForwarding ? "forwarding" : "none",
+    forwardingAddress: user.forwardingAddress || "",
+    lastSyncAt: user.gmail?.lastSyncAt || null,
   });
 });
 
-// POST /api/gmail/disconnect — disconnect Gmail
+// POST /api/gmail/connect — generate a unique forwarding address
+router.post("/connect", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user.forwardingAddress) {
+      const crypto = require("crypto");
+      const random = crypto.randomBytes(6).toString("hex");
+      const domain = process.env.MAILGUN_DOMAIN || "sandbox0aca76da77084d66b11157eebb701b63.mailgun.org";
+      user.forwardingAddress = `jobh-${random}@${domain}`;
+      await user.save();
+    }
+    res.json({ address: user.forwardingAddress });
+  } catch (err) {
+    console.error("Gmail connect error:", err);
+    res.status(500).json({ error: "Failed to generate forwarding address" });
+  }
+});
+
+// POST /api/gmail/disconnect — clear forwarding address
 router.post("/disconnect", authenticate, async (req, res) => {
   try {
-    req.user.gmail = { accessToken: "", refreshToken: "", email: "", historyId: "", lastSyncAt: null };
-    await req.user.save();
+    const user = await User.findById(req.userId);
+    user.forwardingAddress = "";
+    user.gmail = { accessToken: "", refreshToken: "", email: "", historyId: "", lastSyncAt: null };
+    await user.save();
     res.json({ success: true });
   } catch (err) {
     console.error("Gmail disconnect error:", err);
@@ -68,81 +52,110 @@ router.post("/disconnect", authenticate, async (req, res) => {
   }
 });
 
-// POST /api/gmail/sync — fetch recent emails and parse with AI
-router.post("/sync", authenticate, async (req, res) => {
+// POST /api/gmail/webhook — receives forwarded emails from Mailgun
+router.post("/webhook", express.urlencoded({ extended: false }), async (req, res) => {
   try {
-    const userId = req.user._id;
-    const emails = await fetchRecentEmails(userId, 10);
+    const recipient = req.body.recipient || "";
+    const sender = req.body.sender || req.body.From || "";
+    const subject = req.body.subject || req.body.Subject || "";
+    const bodyPlain = req.body["body-plain"] || req.body["body-plain"] || "";
+    const bodyHtml = req.body["body-html"] || req.body["body-html"] || "";
 
-    if (emails.length === 0) {
-      return res.json({ synced: 0, message: "No recent emails found" });
+    if (!recipient) {
+      return res.status(400).json({ error: "No recipient" });
     }
 
-    const { AI_PARSER_URL, AI_PARSER_API_KEY } = process.env;
+    const user = await User.findOne({ forwardingAddress: recipient });
+    if (!user) {
+      return res.status(404).json({ error: "Unknown forwarding address" });
+    }
+
+    const body = bodyPlain || bodyHtml || "";
+    if (!body && !subject) {
+      return res.status(200).json({ skipped: true, reason: "Empty email" });
+    }
+
+    const existing = await Application.findOne({
+      userId: user._id,
+      source: "email",
+      emailSubject: subject,
+      emailFrom: sender,
+    });
+    if (existing) {
+      return res.status(200).json({ skipped: true, reason: "Already processed" });
+    }
+
     if (!AI_PARSER_URL || !AI_PARSER_API_KEY) {
       return res.status(500).json({ error: "AI parser not configured" });
     }
 
-    const existing = await Application.find({ userId, source: "email" }).select("emailSubject emailFrom");
-    const existingKeys = new Set(existing.map((e) => `${e.emailSubject}|||${e.emailFrom}`));
+    const aiRes = await fetch(`${AI_PARSER_URL}/parse-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": AI_PARSER_API_KEY,
+        "X-User-Id": user._id.toString(),
+      },
+      body: JSON.stringify({ subject, from: sender, body }),
+    });
 
-    const newEmails = emails.filter((e) => !existingKeys.has(`${e.subject}|||${e.from}`));
-
-    if (newEmails.length === 0) {
-      return res.json({ synced: 0, message: "No new job emails to process" });
+    if (!aiRes.ok) {
+      return res.status(500).json({ error: "AI parser failed" });
     }
 
-    let synced = 0;
-    const results = [];
-
-    for (const email of newEmails) {
-      try {
-        const aiRes = await fetch(`${AI_PARSER_URL}/parse-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Api-Key": AI_PARSER_API_KEY,
-            "X-User-Id": userId.toString(),
-          },
-          body: JSON.stringify({
-            subject: email.subject,
-            from: email.from,
-            body: email.body || email.snippet,
-          }),
-        });
-
-        if (aiRes.ok) {
-          const parsed = await aiRes.json();
-          if (parsed.company && parsed.role) {
-            await Application.create({
-              userId,
-              company: parsed.company,
-              role: parsed.role,
-              status: parsed.status || "Applied",
-              location: parsed.location || "",
-              date: new Date().toISOString().split("T")[0],
-              source: "email",
-              emailSubject: email.subject,
-              emailFrom: email.from,
-              jobUrl: parsed.jobUrl || "",
-            });
-            synced++;
-            results.push({ subject: email.subject, company: parsed.company, role: parsed.role });
-          }
-        }
-      } catch (err) {
-        continue;
-      }
+    const parsed = await aiRes.json();
+    if (!parsed.company || !parsed.role) {
+      return res.status(200).json({ skipped: true, reason: "Not a job-related email" });
     }
 
-    const user = await User.findById(userId);
+    const application = await Application.create({
+      userId: user._id,
+      company: parsed.company,
+      role: parsed.role,
+      status: parsed.status || "Applied",
+      location: parsed.location || "",
+      date: new Date().toISOString().split("T")[0],
+      source: "email",
+      emailSubject: subject,
+      emailFrom: sender,
+      jobUrl: parsed.jobUrl || "",
+    });
+
+    user.gmail = user.gmail || {};
     user.gmail.lastSyncAt = new Date();
     await user.save();
 
-    res.json({ synced, total: newEmails.length, results });
+    res.json({ success: true, application });
+  } catch (err) {
+    console.error("Gmail webhook error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/gmail/sync — manually trigger a sync (for forwarding mode, just returns status)
+router.post("/sync", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user.forwardingAddress) {
+      return res.status(400).json({ error: "Gmail not connected. Set up forwarding first." });
+    }
+
+    const recentApps = await Application.find({
+      userId: req.userId,
+      source: "email",
+    })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    res.json({
+      synced: 0,
+      message: "Emails are auto-synced when forwarded to your address",
+      forwardingAddress: user.forwardingAddress,
+      recentApplications: recentApps,
+    });
   } catch (err) {
     console.error("Gmail sync error:", err);
-    res.status(500).json({ error: "Failed to sync emails" });
+    res.status(500).json({ error: "Failed to sync" });
   }
 });
 
