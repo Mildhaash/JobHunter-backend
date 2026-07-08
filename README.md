@@ -11,10 +11,6 @@ npm start
 
 Server runs at `http://localhost:3000`
 
-**Test credentials:** `dummyuser1@net.com` / `Demo1234`
-
----
-
 ## API Endpoints
 
 ### Authentication
