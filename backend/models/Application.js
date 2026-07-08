@@ -27,5 +27,8 @@ const applicationSchema = new mongoose.Schema(
 );
 
 applicationSchema.index({ userId: 1 });
+applicationSchema.index({ userId: 1, source: 1, emailSubject: 1, emailFrom: 1 }, { unique: true, sparse: true });
+applicationSchema.index({ userId: 1, status: 1 });
+applicationSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Application", applicationSchema);

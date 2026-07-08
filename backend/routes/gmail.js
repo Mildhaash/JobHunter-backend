@@ -1,18 +1,15 @@
 const express = require("express");
 const authenticate = require("../middleware/auth");
 const User = require("../models/User");
-const Application = require("../models/Application");
 const { getAuthUrl, handleCallback, fetchRecentEmails } = require("../services/gmailService");
+const { callAIParser, findDuplicate, createApplicationFromEmail, isConfigured } = require("../helpers/emailHelper");
 
 const router = express.Router();
-const AI_PARSER_URL = process.env.AI_PARSER_URL;
-const AI_PARSER_API_KEY = process.env.AI_PARSER_API_KEY;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 // GET /api/gmail/status
 router.get("/status", authenticate, (req, res) => {
-  const user = req.user;
-  const gmail = user.gmail || {};
+  const gmail = req.user.gmail || {};
   res.json({
     connected: !!(gmail.refreshToken),
     email: gmail.email || "",
@@ -27,53 +24,21 @@ router.post("/parse", authenticate, async (req, res) => {
     if (!body && !subject) {
       return res.status(400).json({ error: "Paste an email content (subject, from, or body)" });
     }
-
-    if (!AI_PARSER_URL || !AI_PARSER_API_KEY) {
+    if (!isConfigured()) {
       return res.status(500).json({ error: "AI parser not configured" });
     }
 
-    const aiRes = await fetch(`${AI_PARSER_URL}/parse-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": AI_PARSER_API_KEY,
-        "X-User-Id": req.userId.toString(),
-      },
-      body: JSON.stringify({ subject: subject || "", from: from || "", body: body || "" }),
-    });
-
-    if (!aiRes.ok) {
-      return res.status(500).json({ error: "AI parser failed" });
-    }
-
-    const parsed = await aiRes.json();
-
-    if (!parsed.company || !parsed.role) {
+    const parsed = await callAIParser(subject, from, body, req.userId);
+    if (!parsed || !parsed.company || !parsed.role) {
       return res.json({ found: false, message: "This doesn't look like a job-related email" });
     }
 
-    const existing = await Application.findOne({
-      userId: req.userId,
-      source: "email",
-      emailSubject: subject || "",
-      emailFrom: from || "",
-    });
+    const existing = await findDuplicate(req.userId, subject, from);
     if (existing) {
       return res.json({ found: false, message: "This email was already added", application: existing });
     }
 
-    const application = await Application.create({
-      userId: req.userId,
-      company: parsed.company,
-      role: parsed.role,
-      status: parsed.status || "Applied",
-      location: parsed.location || "",
-      date: new Date().toISOString().split("T")[0],
-      source: "email",
-      emailSubject: subject || "",
-      emailFrom: from || "",
-      jobUrl: parsed.jobUrl || "",
-    });
+    const application = await createApplicationFromEmail(req.userId, parsed, subject, from);
 
     const user = await User.findById(req.userId);
     user.gmail = user.gmail || {};
@@ -94,8 +59,7 @@ router.post("/parse-batch", authenticate, async (req, res) => {
     if (!Array.isArray(emails) || emails.length === 0) {
       return res.status(400).json({ error: "Provide an array of emails" });
     }
-
-    if (!AI_PARSER_URL || !AI_PARSER_API_KEY) {
+    if (!isConfigured()) {
       return res.status(500).json({ error: "AI parser not configured" });
     }
 
@@ -104,44 +68,13 @@ router.post("/parse-batch", authenticate, async (req, res) => {
 
     for (const email of emails) {
       try {
-        const aiRes = await fetch(`${AI_PARSER_URL}/parse-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Api-Key": AI_PARSER_API_KEY,
-            "X-User-Id": req.userId.toString(),
-          },
-          body: JSON.stringify({
-            subject: email.subject || "",
-            from: email.from || "",
-            body: email.body || "",
-          }),
-        });
+        const parsed = await callAIParser(email.subject, email.from, email.body, req.userId);
+        if (!parsed || !parsed.company || !parsed.role) continue;
 
-        if (!aiRes.ok) continue;
-        const parsed = await aiRes.json();
-        if (!parsed.company || !parsed.role) continue;
-
-        const existing = await Application.findOne({
-          userId: req.userId,
-          source: "email",
-          emailSubject: email.subject || "",
-          emailFrom: email.from || "",
-        });
+        const existing = await findDuplicate(req.userId, email.subject, email.from);
         if (existing) continue;
 
-        await Application.create({
-          userId: req.userId,
-          company: parsed.company,
-          role: parsed.role,
-          status: parsed.status || "Applied",
-          location: parsed.location || "",
-          date: new Date().toISOString().split("T")[0],
-          source: "email",
-          emailSubject: email.subject || "",
-          emailFrom: email.from || "",
-          jobUrl: parsed.jobUrl || "",
-        });
+        await createApplicationFromEmail(req.userId, parsed, email.subject, email.from);
         synced++;
         results.push({ subject: email.subject, company: parsed.company, role: parsed.role });
       } catch {
@@ -161,7 +94,7 @@ router.post("/parse-batch", authenticate, async (req, res) => {
   }
 });
 
-// GET /api/gmail/auth — generate Google OAuth URL and redirect
+// GET /api/gmail/auth — generate Google OAuth URL
 router.get("/auth", authenticate, (req, res) => {
   try {
     const url = getAuthUrl(req.userId.toString());
@@ -215,8 +148,7 @@ router.post("/sync", authenticate, async (req, res) => {
     if (!user || !user.gmail || !user.gmail.refreshToken) {
       return res.status(400).json({ error: "Gmail not connected. Please connect your Gmail first." });
     }
-
-    if (!AI_PARSER_URL || !AI_PARSER_API_KEY) {
+    if (!isConfigured()) {
       return res.status(500).json({ error: "AI parser not configured" });
     }
 
@@ -231,47 +163,16 @@ router.post("/sync", authenticate, async (req, res) => {
 
     for (const email of emails) {
       try {
-        const aiRes = await fetch(`${AI_PARSER_URL}/parse-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Api-Key": AI_PARSER_API_KEY,
-            "X-User-Id": userId.toString(),
-          },
-          body: JSON.stringify({
-            subject: email.subject || "",
-            from: email.from || "",
-            body: email.body || "",
-          }),
-        });
+        const parsed = await callAIParser(email.subject, email.from, email.body, userId);
+        if (!parsed || !parsed.company || !parsed.role) continue;
 
-        if (!aiRes.ok) continue;
-        const parsed = await aiRes.json();
-        if (!parsed.company || !parsed.role) continue;
-
-        const existing = await Application.findOne({
-          userId,
-          source: "email",
-          emailSubject: email.subject || "",
-          emailFrom: email.from || "",
-        });
+        const existing = await findDuplicate(userId, email.subject, email.from);
         if (existing) {
           skipped++;
           continue;
         }
 
-        await Application.create({
-          userId,
-          company: parsed.company,
-          role: parsed.role,
-          status: parsed.status || "Applied",
-          location: parsed.location || "",
-          date: new Date().toISOString().split("T")[0],
-          source: "email",
-          emailSubject: email.subject || "",
-          emailFrom: email.from || "",
-          jobUrl: parsed.jobUrl || "",
-        });
+        await createApplicationFromEmail(userId, parsed, email.subject, email.from);
         synced++;
         results.push({ subject: email.subject, company: parsed.company, role: parsed.role });
       } catch {

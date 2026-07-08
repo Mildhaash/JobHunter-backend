@@ -62,7 +62,6 @@ router.get("/:id", authenticate, async (req, res) => {
 // PUT /api/applications/:id
 router.put("/:id", authenticate, async (req, res) => {
   try {
-    console.log("PUT called with id:", req.params.id, "userId:", req.userId);
     const app = await Application.findOne({ _id: req.params.id, userId: req.userId });
     if (!app) return res.status(404).json({ error: "Application not found" });
 
@@ -92,9 +91,7 @@ router.put("/:id", authenticate, async (req, res) => {
 // DELETE /api/applications/:id
 router.delete("/:id", authenticate, async (req, res) => {
   try {
-    console.log("DELETE called with id:", req.params.id, "userId:", req.userId);
     const result = await Application.deleteOne({ _id: req.params.id, userId: req.userId });
-    console.log("Delete result:", result);
     if (result.deletedCount === 0) return res.status(404).json({ error: "Application not found" });
     res.status(204).send();
   } catch (err) {

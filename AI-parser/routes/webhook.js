@@ -1,7 +1,5 @@
 const express = require("express");
-const crypto = require("crypto");
 const { parseEmail } = require("../services/aiParser");
-const { parseMailgunEmail } = require("../services/emailParser");
 
 const router = express.Router();
 

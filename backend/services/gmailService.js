@@ -159,4 +159,4 @@ async function fetchRecentEmails(userId, maxResults = 20) {
   return results;
 }
 
-module.exports = { getAuthUrl, handleCallback, fetchRecentEmails, SCOPES };
+module.exports = { getAuthUrl, handleCallback, fetchRecentEmails };

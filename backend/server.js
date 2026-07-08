@@ -20,7 +20,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toSt
 
 connectDB();
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
   res.header("Access-Control-Allow-Headers", "Content-Type, X-Session-Id, X-User-Id, X-Api-Key");
