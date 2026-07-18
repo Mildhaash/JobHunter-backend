@@ -10,7 +10,6 @@ const { generateSessionId, sanitizeUser } = require("../helpers/utils");
 
 const router = express.Router();
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 const BCRYPT_ROUNDS = 10;
 
 // POST /api/auth/signup
@@ -151,7 +150,7 @@ router.post("/forgot-password", async (req, res) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
 
-    const resetUrl = `${FRONTEND_URL}/Homepage/reset-password.html?token=${rawToken}`;
+    const resetUrl = `${CLIENT_URL}/Homepage/reset-password.html?token=${rawToken}`;
 
     let emailSent = false;
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
