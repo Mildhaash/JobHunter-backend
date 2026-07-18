@@ -1,4 +1,4 @@
-# JobHunteR - Backend API
+# JobHunteR - Backend API (Decodelabs Task 2)
 
 Job tracker application with an Express.js REST API backend.
 
