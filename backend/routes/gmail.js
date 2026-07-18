@@ -5,7 +5,7 @@ const { getAuthUrl, handleCallback, fetchRecentEmails } = require("../services/g
 const { callAIParser, findDuplicate, createApplicationFromEmail, isConfigured } = require("../helpers/emailHelper");
 
 const router = express.Router();
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CLIENT_URL || "http://localhost:3000";
 
 // GET /api/gmail/status
 router.get("/status", authenticate, (req, res) => {

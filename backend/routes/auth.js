@@ -1,6 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const passport = require("passport");
+const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const Session = require("../models/Session");
 const authenticate = require("../middleware/auth");
@@ -8,6 +10,7 @@ const { generateSessionId, sanitizeUser } = require("../helpers/utils");
 
 const router = express.Router();
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 const BCRYPT_ROUNDS = 10;
 
 // POST /api/auth/signup
@@ -120,6 +123,108 @@ router.get("/session", async (req, res) => {
     res.json({ sessionId, user: sanitizeUser(user), signedInAt: sess.signedInAt });
   } catch (err) {
     console.error("Session check error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user) {
+      return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    }
+
+    if (user.provider !== "local") {
+      return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const resetUrl = `${FRONTEND_URL}/Homepage/reset-password.html?token=${rawToken}`;
+
+    let transporter;
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_SECURE === "true",
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || "JobHunter <noreply@jobhunter.app>",
+        to: user.email,
+        subject: "Reset your JobHunter password",
+        html: `<p>Hi ${user.name},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">Reset Password</a></p><p>If you didn't request this, ignore this email.</p>`,
+      });
+    } else {
+      console.log(`[DEV] Password reset link for ${user.email}: ${resetUrl}`);
+    }
+
+    res.json({ message: "If an account exists with that email, a reset link has been sent." });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/auth/reset-password/:token — validate token
+router.get("/reset-password/:token", async (req, res) => {
+  try {
+    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select("+resetPasswordToken +resetPasswordExpires");
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+    res.json({ valid: true, email: user.email });
+  } catch (err) {
+    console.error("Reset password validate error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/auth/reset-password/:token
+router.post("/reset-password/:token", async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select("+resetPasswordToken +resetPasswordExpires +password");
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid or expired reset token" });
+    }
+
+    user.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    await Session.deleteMany({ userId: user._id });
+
+    res.json({ message: "Password has been reset. You can now log in." });
+  } catch (err) {
+    console.error("Reset password error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

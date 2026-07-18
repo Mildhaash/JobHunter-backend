@@ -17,6 +17,8 @@ const userSchema = new mongoose.Schema(
       enum: ["local", "google", "github"],
       default: "local",
     },
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
     forwardingAddress: { type: String, default: "" },
     gmail: {
       accessToken: { type: String, default: "" },
