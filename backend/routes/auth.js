@@ -153,9 +153,9 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetUrl = `${FRONTEND_URL}/Homepage/reset-password.html?token=${rawToken}`;
 
-    let transporter;
+    let emailSent = false;
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      transporter = nodemailer.createTransport({
+      const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT || "587", 10),
         secure: process.env.SMTP_SECURE === "true",
@@ -167,11 +167,12 @@ router.post("/forgot-password", async (req, res) => {
         subject: "Reset your JobHunter password",
         html: `<p>Hi ${user.name},</p><p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">Reset Password</a></p><p>If you didn't request this, ignore this email.</p>`,
       });
-    } else {
-      console.log(`[DEV] Password reset link for ${user.email}: ${resetUrl}`);
+      emailSent = true;
     }
 
-    res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    const response = { message: emailSent ? "Reset link sent to your email." : "Password reset link generated." };
+    if (!emailSent) response.resetUrl = resetUrl;
+    res.json(response);
   } catch (err) {
     console.error("Forgot password error:", err);
     res.status(500).json({ error: "Internal server error" });
