@@ -1,25 +1,8 @@
 const Application = require("../models/Application");
-
-const AI_PARSER_URL = process.env.AI_PARSER_URL;
-const AI_PARSER_API_KEY = process.env.AI_PARSER_API_KEY;
+const { parseEmail } = require("./aiParser");
 
 async function callAIParser(subject, from, body, userId) {
-  const aiRes = await fetch(`${AI_PARSER_URL}/parse-email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Api-Key": AI_PARSER_API_KEY,
-      "X-User-Id": userId.toString(),
-    },
-    body: JSON.stringify({ subject: subject || "", from: from || "", body: body || "" }),
-  });
-
-  if (!aiRes.ok) {
-    const errBody = await aiRes.json().catch(() => ({}));
-    console.error(`AI parser returned ${aiRes.status}:`, errBody);
-    return null;
-  }
-  return await aiRes.json();
+  return await parseEmail(subject || "", body || "", from || "");
 }
 
 async function findDuplicate(userId, subject, from) {
@@ -47,7 +30,7 @@ async function createApplicationFromEmail(userId, parsed, subject, from) {
 }
 
 function isConfigured() {
-  return !!(AI_PARSER_URL && AI_PARSER_API_KEY);
+  return !!process.env.GROQ_API_KEY;
 }
 
 module.exports = { callAIParser, findDuplicate, createApplicationFromEmail, isConfigured };
