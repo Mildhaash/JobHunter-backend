@@ -22,9 +22,9 @@ If you cannot determine a field, use reasonable defaults:
 - status: "Applied"
 - location: "Remote"`;
 
-async function parseEmail(subject, textBody) {
+async function parseEmail(subject, textBody, from) {
   const apiKey = process.env.GROQ_API_KEY;
-  const input = `Email Subject: ${subject}\n\nEmail Body:\n${textBody}`;
+  const input = `Email Subject: ${subject}\nFrom: ${from || "Unknown"}\n\nEmail Body:\n${textBody}`;
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",

@@ -27,7 +27,7 @@ app.post("/parse-email", async (req, res) => {
     }
 
     const { parseEmail } = require("./services/aiParser");
-    const parsed = await parseEmail(subject || "", body || "");
+    const parsed = await parseEmail(subject || "", body || "", from || "");
 
     res.json({
       company: parsed.company,

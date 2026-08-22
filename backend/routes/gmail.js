@@ -153,6 +153,7 @@ router.post("/sync", authenticate, async (req, res) => {
     }
 
     const emails = await fetchRecentEmails(userId, 30);
+    console.log(`Gmail sync: fetched ${emails.length} emails for user ${userId}`);
     if (emails.length === 0) {
       return res.json({ synced: 0, total: 0, results: [], message: "No recent emails found" });
     }
@@ -164,7 +165,10 @@ router.post("/sync", authenticate, async (req, res) => {
     for (const email of emails) {
       try {
         const parsed = await callAIParser(email.subject, email.from, email.body, userId);
-        if (!parsed || !parsed.company || !parsed.role) continue;
+        if (!parsed || !parsed.company || !parsed.role) {
+          console.log(`AI parser skipped email: "${email.subject}" — parsed:`, parsed);
+          continue;
+        }
 
         const existing = await findDuplicate(userId, email.subject, email.from);
         if (existing) {
@@ -175,7 +179,8 @@ router.post("/sync", authenticate, async (req, res) => {
         await createApplicationFromEmail(userId, parsed, email.subject, email.from);
         synced++;
         results.push({ subject: email.subject, company: parsed.company, role: parsed.role });
-      } catch {
+      } catch (err) {
+        console.error(`Failed to parse email "${email.subject}":`, err.message);
         continue;
       }
     }

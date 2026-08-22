@@ -14,7 +14,11 @@ async function callAIParser(subject, from, body, userId) {
     body: JSON.stringify({ subject: subject || "", from: from || "", body: body || "" }),
   });
 
-  if (!aiRes.ok) return null;
+  if (!aiRes.ok) {
+    const errBody = await aiRes.json().catch(() => ({}));
+    console.error(`AI parser returned ${aiRes.status}:`, errBody);
+    return null;
+  }
   return await aiRes.json();
 }
 
