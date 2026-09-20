@@ -152,7 +152,13 @@ router.post("/sync", authenticate, async (req, res) => {
       return res.status(500).json({ error: "AI parser not configured" });
     }
 
-    const emails = await fetchRecentEmails(userId, 10);
+    let emails;
+    try {
+      emails = await fetchRecentEmails(userId, 10);
+    } catch (gmailErr) {
+      console.error("Gmail API error:", gmailErr.message);
+      return res.status(500).json({ error: "Failed to fetch emails from Gmail", details: gmailErr.message });
+    }
     console.log(`Gmail sync: fetched ${emails.length} emails for user ${userId}`);
     if (emails.length === 0) {
       return res.json({ synced: 0, total: 0, results: [], message: "No recent emails found" });
