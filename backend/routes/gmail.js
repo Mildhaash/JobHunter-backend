@@ -7,7 +7,7 @@ const { callAIParser, findDuplicate, createApplicationFromEmail, isConfigured } 
 const router = express.Router();
 const FRONTEND_URL = process.env.CLIENT_URL || "http://localhost:3000";
 
-// GET /api/gmail/status
+// POST /api/gmail/status
 router.get("/status", authenticate, (req, res) => {
   const gmail = req.user.gmail || {};
   res.json({
@@ -15,6 +15,30 @@ router.get("/status", authenticate, (req, res) => {
     email: gmail.email || "",
     lastSyncAt: gmail.lastSyncAt || null,
   });
+});
+
+// POST /api/gmail/disconnect — remove Gmail connection
+router.post("/disconnect", authenticate, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.gmail = {
+      accessToken: "",
+      refreshToken: "",
+      email: "",
+      historyId: "",
+      lastSyncAt: null,
+      verificationUrl: "",
+      status: "disconnected",
+    };
+    await user.save();
+
+    res.json({ success: true, message: "Gmail disconnected" });
+  } catch (err) {
+    console.error("Gmail disconnect error:", err);
+    res.status(500).json({ error: "Failed to disconnect Gmail" });
+  }
 });
 
 // POST /api/gmail/parse — paste an email and AI extracts the job application
@@ -173,13 +197,15 @@ router.post("/sync", authenticate, async (req, res) => {
 
     let synced = 0;
     let skipped = 0;
+    let filtered = 0;
     const results = [];
 
     for (const email of emails) {
       try {
         const parsed = await callAIParser(email.subject, email.from, email.body, userId);
         if (!parsed || !parsed.company || !parsed.role) {
-          console.log(`AI parser skipped email: "${email.subject}" — parsed:`, parsed);
+          filtered++;
+          console.log(`Filtered (not a job application): "${email.subject}"`);
           continue;
         }
 
@@ -202,7 +228,7 @@ router.post("/sync", authenticate, async (req, res) => {
     user.gmail.lastSyncAt = new Date();
     await user.save();
 
-    res.json({ synced, skipped, total: emails.length, results });
+    res.json({ synced, skipped, filtered, total: emails.length, results });
   } catch (err) {
     console.error("Gmail sync error:", err.message, err.stack);
     res.status(500).json({ error: "Failed to sync emails", details: err.message });

@@ -1,30 +1,45 @@
-const PARSE_PROMPT = `You are an AI that extracts job application details from email content.
+const PARSE_PROMPT = `You are an AI that determines if an email is a genuine job application update and extracts details.
 
-Given the email subject and body, extract the following fields:
-- company: The company name (string)
-- role: The job role/title (string)
-- status: One of "Applied", "Interview", "Offer", "Rejected" (choose the best match)
-- location: Job location if mentioned, otherwise "Remote" (string)
-- jobUrl: The job posting URL if found, otherwise null (string or null)
-- confidence: Your confidence score from 0 to 1 (number)
+FIRST, determine if this email is related to a real job application the user submitted. It MUST be one of:
+- Application confirmation (you applied to X)
+- Interview invitation or scheduling
+- Offer letter / job offer
+- Rejection / not selected notification
+- Status update on an application you made
 
-Return ONLY a valid JSON object with these fields, no markdown or extra text.
+REJECT (return {"isJobApplication": false}) these types of emails:
+- Newsletters, marketing, promotions, or spam
+- Recruiter cold outreach or unsolicited job suggestions
+- Generic company updates or blog posts
+- Subscription confirmations
+- Social media notifications
+- Email digests or weekly roundups
+- Anything where the user did NOT actually apply for a job
 
-Examples of status detection:
-- "Thank you for applying" / "Application received" → "Applied"
-- "Interview invitation" / "Phone screen" / "Technical interview" → "Interview"
-- "Offer letter" / "Congratulations" / "We are pleased to offer" → "Offer"
-- "Unfortunately" / "Not selected" / "We regret to inform" → "Rejected"
+If it IS a genuine job application email, return:
+{
+  "isJobApplication": true,
+  "company": "Company name as mentioned in the email (no extra words appended)",
+  "role": "Job title/role applied for",
+  "status": "Applied" | "Interview" | "Offer" | "Rejected",
+  "location": "Location if mentioned, otherwise Remote",
+  "jobUrl": "URL if found, otherwise null",
+  "confidence": 0.0 to 1.0
+}
 
-If you cannot determine a field, use reasonable defaults:
-- company: "Unknown Company"
-- role: "Unknown Role"
-- status: "Applied"
-- location: "Remote"`;
+Status detection:
+- "Thank you for applying" / "Application received" / "We received your application" → "Applied"
+- "Interview invitation" / "Phone screen" / "Technical interview" / "Schedule a call" → "Interview"
+- "Offer letter" / "Congratulations" / "We are pleased to offer" / "Welcome to the team" → "Offer"
+- "Unfortunately" / "Not selected" / "We regret to inform" / "position has been filled" → "Rejected"
+
+IMPORTANT:
+- The company name should be EXACTLY as the email states, nothing extra appended
+- Return ONLY a valid JSON object, no markdown or extra text`;
 
 async function parseEmail(subject, textBody, from) {
   const apiKey = process.env.GROQ_API_KEY;
-  const input = `Email Subject: ${subject}\nFrom: ${from || "Unknown"}\n\nEmail Body:\n${textBody}`;
+  const input = `Email Subject: ${subject}\nFrom: ${from || "Unknown"}\n\nEmail Body:\n${textBody.substring(0, 2000)}`;
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -33,7 +48,7 @@ async function parseEmail(subject, textBody, from) {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
       messages: [
         { role: "system", content: PARSE_PROMPT },
         { role: "user", content: input },
@@ -58,9 +73,17 @@ async function parseEmail(subject, textBody, from) {
 
   const parsed = JSON.parse(jsonMatch[0]);
 
+  if (parsed.isJobApplication === false) {
+    return null;
+  }
+
+  if (!parsed.company || !parsed.role) {
+    return null;
+  }
+
   return {
-    company: parsed.company || "Unknown Company",
-    role: parsed.role || "Unknown Role",
+    company: parsed.company,
+    role: parsed.role,
     status: ["Applied", "Interview", "Offer", "Rejected"].includes(parsed.status)
       ? parsed.status
       : "Applied",
