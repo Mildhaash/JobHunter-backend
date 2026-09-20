@@ -19,7 +19,7 @@ router.get("/", authenticate, async (req, res) => {
 // POST /api/applications
 router.post("/", authenticate, async (req, res) => {
   try {
-    const { company, role, location, date, status } = req.body;
+    const { company, role, location, date, status, source, emailSubject, emailFrom, jobUrl } = req.body;
 
     if (!company || !company.trim()) return res.status(400).json({ error: "company is required" });
     if (!role || !role.trim()) return res.status(400).json({ error: "role is required" });
@@ -31,6 +31,25 @@ router.post("/", authenticate, async (req, res) => {
       return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(", ")}` });
     }
 
+    if (source === "email" && emailSubject && emailFrom) {
+      const existing = await Application.findOne({
+        userId: req.userId,
+        source: "email",
+        emailSubject,
+        emailFrom,
+      });
+      if (existing) {
+        if (status && VALID_STATUSES.includes(status)) existing.status = status;
+        if (company) existing.company = company.trim();
+        if (role) existing.role = role.trim();
+        if (location) existing.location = location.trim();
+        if (date) existing.date = date;
+        if (jobUrl) existing.jobUrl = jobUrl;
+        await existing.save();
+        return res.json(existing);
+      }
+    }
+
     const newApp = await Application.create({
       company: company.trim(),
       role: role.trim(),
@@ -38,6 +57,10 @@ router.post("/", authenticate, async (req, res) => {
       date,
       status: finalStatus,
       userId: req.userId,
+      source: source || "manual",
+      emailSubject: emailSubject || "",
+      emailFrom: emailFrom || "",
+      jobUrl: jobUrl || "",
     });
 
     res.status(201).json(newApp);
