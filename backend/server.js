@@ -11,6 +11,7 @@ const applicationRoutes = require("./routes/applications");
 const profileRoutes = require("./routes/profile");
 const forwardingRoutes = require("./routes/forwarding");
 const gmailRoutes = require("./routes/gmail");
+const { cleanupDuplicates } = require("./helpers/emailHelper");
 
 const path = require("path");
 const app = express();
@@ -18,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 
-connectDB();
+connectDB().then(() => cleanupDuplicates());
 
 app.use(express.json({ limit: "1mb" }));
 app.use((req, res, next) => {

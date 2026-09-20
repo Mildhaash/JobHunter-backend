@@ -42,4 +42,42 @@ function isConfigured() {
   return !!process.env.GROQ_API_KEY;
 }
 
-module.exports = { callAIParser, findDuplicate, createApplicationFromEmail, isConfigured };
+const STATUS_RANK = { Applied: 0, Interview: 1, Offer: 2, Rejected: 3 };
+
+async function cleanupDuplicates() {
+  const applications = await Application.find({}).sort({ createdAt: 1 });
+  const groups = {};
+  for (const app of applications) {
+    const key = `${app.userId}_${app.company.trim().toLowerCase()}_${app.role.trim().toLowerCase()}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(app);
+  }
+
+  let merged = 0;
+  for (const group of Object.values(groups)) {
+    if (group.length <= 1) continue;
+    const keep = group.reduce((best, curr) => {
+      const bestRank = STATUS_RANK[best.status] ?? 0;
+      const currRank = STATUS_RANK[curr.status] ?? 0;
+      if (currRank > bestRank) return curr;
+      if (currRank === bestRank && curr.createdAt > best.createdAt) return curr;
+      return best;
+    });
+    const toDelete = group.filter((a) => a._id.toString() !== keep._id.toString());
+    if (keep.source !== "email") {
+      const emailVersion = group.find((a) => a.source === "email");
+      if (emailVersion) {
+        keep.source = "email";
+        keep.emailSubject = emailVersion.emailSubject;
+        keep.emailFrom = emailVersion.emailFrom;
+        if (emailVersion.jobUrl) keep.jobUrl = emailVersion.jobUrl;
+        await keep.save();
+      }
+    }
+    await Application.deleteMany({ _id: { $in: toDelete.map((a) => a._id) } });
+    merged += toDelete.length;
+  }
+  if (merged > 0) console.log(`Dedup cleanup: merged ${merged} duplicate application(s)`);
+}
+
+module.exports = { callAIParser, findDuplicate, createApplicationFromEmail, isConfigured, cleanupDuplicates };
