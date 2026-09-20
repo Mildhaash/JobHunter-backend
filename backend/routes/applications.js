@@ -31,12 +31,11 @@ router.post("/", authenticate, async (req, res) => {
       return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(", ")}` });
     }
 
-    if (source === "email" && emailSubject && emailFrom) {
+    if (source === "email") {
       const existing = await Application.findOne({
         userId: req.userId,
-        source: "email",
-        emailSubject,
-        emailFrom,
+        company: company.trim(),
+        role: role.trim(),
       });
       if (existing) {
         if (status && VALID_STATUSES.includes(status)) existing.status = status;

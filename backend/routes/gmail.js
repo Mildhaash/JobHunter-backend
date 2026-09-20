@@ -57,9 +57,9 @@ router.post("/parse", authenticate, async (req, res) => {
       return res.json({ found: false, message: "This doesn't look like a job-related email" });
     }
 
-    const existing = await findDuplicate(req.userId, subject, from);
+    const existing = await findDuplicate(req.userId, parsed.company, parsed.role);
     if (existing) {
-      return res.json({ found: false, message: "This email was already added", application: existing });
+      return res.json({ found: false, message: "This application was already added", application: existing });
     }
 
     const application = await createApplicationFromEmail(req.userId, parsed, subject, from);
@@ -95,7 +95,7 @@ router.post("/parse-batch", authenticate, async (req, res) => {
         const parsed = await callAIParser(email.subject, email.from, email.body, req.userId);
         if (!parsed || !parsed.company || !parsed.role) continue;
 
-        const existing = await findDuplicate(req.userId, email.subject, email.from);
+        const existing = await findDuplicate(req.userId, parsed.company, parsed.role);
         if (existing) continue;
 
         await createApplicationFromEmail(req.userId, parsed, email.subject, email.from);
@@ -209,7 +209,7 @@ router.post("/sync", authenticate, async (req, res) => {
           continue;
         }
 
-        const existing = await findDuplicate(userId, email.subject, email.from);
+        const existing = await findDuplicate(userId, parsed.company, parsed.role);
         if (existing) {
           skipped++;
           continue;
