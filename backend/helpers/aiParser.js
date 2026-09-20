@@ -27,14 +27,18 @@ async function parseEmail(subject, textBody, from) {
 
   const input = `Email Subject: ${subject}\nFrom: ${from || "Unknown"}\n\nEmail Body:\n${textBody}`;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
+    signal: controller.signal,
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
+      model: "llama-3.1-8b-instant",
       messages: [
         { role: "system", content: PARSE_PROMPT },
         { role: "user", content: input },
@@ -42,7 +46,7 @@ async function parseEmail(subject, textBody, from) {
       temperature: 0.1,
       max_tokens: 300,
     }),
-  });
+  }).finally(() => clearTimeout(timeout));
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

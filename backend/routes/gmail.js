@@ -152,7 +152,7 @@ router.post("/sync", authenticate, async (req, res) => {
       return res.status(500).json({ error: "AI parser not configured" });
     }
 
-    const emails = await fetchRecentEmails(userId, 30);
+    const emails = await fetchRecentEmails(userId, 10);
     console.log(`Gmail sync: fetched ${emails.length} emails for user ${userId}`);
     if (emails.length === 0) {
       return res.json({ synced: 0, total: 0, results: [], message: "No recent emails found" });
@@ -191,8 +191,8 @@ router.post("/sync", authenticate, async (req, res) => {
 
     res.json({ synced, skipped, total: emails.length, results });
   } catch (err) {
-    console.error("Gmail sync error:", err);
-    res.status(500).json({ error: "Failed to sync emails" });
+    console.error("Gmail sync error:", err.message, err.stack);
+    res.status(500).json({ error: "Failed to sync emails", details: err.message });
   }
 });
 
