@@ -157,7 +157,14 @@ router.post("/sync", authenticate, async (req, res) => {
       emails = await fetchRecentEmails(userId, 10);
     } catch (gmailErr) {
       console.error("Gmail API error:", gmailErr.message);
-      return res.status(500).json({ error: "Failed to fetch emails from Gmail", details: gmailErr.message });
+      if (gmailErr.message.includes("invalid_grant")) {
+        user.gmail.accessToken = "";
+        user.gmail.refreshToken = "";
+        user.gmail.status = "expired";
+        await user.save();
+        return res.status(400).json({ error: "Gmail access expired. Please reconnect your Gmail account.", details: gmailErr.message });
+      }
+      return res.status(500).json({ error: "Failed to fetch emails from Gmail: " + gmailErr.message, details: gmailErr.message });
     }
     console.log(`Gmail sync: fetched ${emails.length} emails for user ${userId}`);
     if (emails.length === 0) {
